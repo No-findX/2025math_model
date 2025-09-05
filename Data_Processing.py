@@ -145,7 +145,7 @@ class DataPreprocessor:
         df = self._rename_columns(df)
 
         # 步骤 2: 特征工程
-        df = self._engineer_features(df).convert_gest_week()
+        df = self._engineer_features(df)
 
         # 步骤 3: 处理缺失值
         df_clean = self._handle_missing_values(df)
