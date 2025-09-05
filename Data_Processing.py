@@ -22,11 +22,6 @@ class ModelConfig:
     iqr_multiplier: float = 1.5
     zscore_threshold: float = 4.0
 
-    # 生理学约束
-    gest_week_range: tuple[float, float] = (8.0, 30.0)
-    bmi_range: tuple[float, float] = (15.0, 60.0)
-    height_unit_threshold: float = 3.0  # 身高单位判断阈值 (米)
-
     # 可视化
     figure_size: tuple[int, int] = (8, 6)
     figure_dpi: int = 150
@@ -66,53 +61,32 @@ class DataPreprocessor:
 
     def _engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
 
-        # 确保身高、体重是数值型
-        df['height'] = pd.to_numeric(df['height'], errors='coerce')
-        df['weight'] = pd.to_numeric(df['weight'], errors='coerce')
-
         # 转换孕周为天数
-        if "w+" in df['gest_week']:
-            parts = df['gest_week'].split("w+")
-            week = int(parts[0])
-            days = int(parts[1])
-            df['gest_week'] = week * 7 + days
-        elif 'w'in df['gest_week']:
-            parts = df['gest_week'].split('w')
-            df['gest_week'] = int(parts[0] * 7)
-
-        return df
-
-    def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        """处理缺失值：使用线性插值和KNN填充"""
-        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-
-        # 1. 线性插值
-        df[numeric_cols] = df[numeric_cols].interpolate(method='linear', limit_direction='both')
-
-        # 2. KNN填充剩余缺失值
-        if df[numeric_cols].isnull().sum().sum() > 0:
-            imputer = KNNImputer(n_neighbors=self.config.knn_neighbors)
-
-            # 只保留确实有缺失的列
-            cols_with_na = [c for c in numeric_cols if df[c].isnull().any()]
-
-            imputed_array = imputer.fit_transform(df[cols_with_na])
-            df[cols_with_na] = pd.DataFrame(imputed_array, columns=cols_with_na, index=df.index)
+        for i in range(len(df['gest_week'])):
+            if "w+" in df['gest_week'][i]:
+                parts = df['gest_week'][i].split("w+")
+                week = int(parts[0])
+                days = int(parts[1])
+                df['gest_week'][i] = week * 7 + days
+            else:
+                parts = df['gest_week'][i].split('w')
+                df['gest_week'][i] = int(parts[0]) * 7
 
         return df
 
     def _handle_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
-        """处理异常值：基于生理约束和统计学方法（盖帽法）"""
-        numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+        standardized_cols = ['chr21_z_score']
 
-        # 使用IQR进行Winzorization（盖帽法）处理统计异常值
-        for col in numeric_cols:
+        # 使用IQR进行Winzorization处理统计异常值
+        for col in standardized_cols:
             Q1 = df[col].quantile(0.25)
             Q3 = df[col].quantile(0.75)
             IQR = Q3 - Q1
             lower_bound = Q1 - self.config.iqr_multiplier * IQR
             upper_bound = Q3 + self.config.iqr_multiplier * IQR
+            print('数据异常处理',df[col][0], len(df[col]))
             df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
+            print(len(df[col]))
 
         return df
 
@@ -125,18 +99,18 @@ class DataPreprocessor:
 
         for var in key_vars:
             if var in df.columns:
-                plt.figure(figsize=self.config.figure_size)
-                df[var].plot(kind='box')
-                plt.title(f'Box Plot of {var} for {prefix}')
-                plt.ylabel(var)
-                fig_path = figs_dir / f"{prefix}_{var}_boxplot.png"
-                plt.savefig(fig_path, dpi=self.config.figure_dpi)
-                plt.close()
+                if pd.api.types.is_numeric_dtype(df[var]) and not df[var].isnull().all():
+                    plt.figure(figsize=self.config.figure_size)
+                    df[var].plot(kind='box')
+                    plt.title(f'Box Plot of {var} for {prefix}')
+                    plt.ylabel(var)
+                    fig_path = figs_dir / f"{prefix}_{var}_boxplot.png"
+                    plt.savefig(fig_path, dpi=self.config.figure_dpi)
+                    plt.close()
+                else:
+                    print(f"Skipping variable '{var}' as it is not numeric or contains only null values.")
 
     def process(self, df: pd.DataFrame, output_dir: str, file_prefix: str) -> dict:
-        """
-        执行完整的预处理流程.
-        """
 
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True, parents=True)
@@ -147,27 +121,24 @@ class DataPreprocessor:
         # 步骤 2: 特征工程
         df = self._engineer_features(df)
 
-        # 步骤 3: 处理缺失值
-        df_clean = self._handle_missing_values(df)
-
         # 步骤 4: 处理异常值
-        df_clean = self._handle_outliers(df_clean)
+        df_clean = self._handle_outliers(df)
 
         # 步骤 5: 可视化
         self._visualize_key_vars(df_clean, output_path, file_prefix)
 
         # 步骤 6: 数据标准化与归一化
-        numeric_cols = df_clean.select_dtypes(include=np.number).columns
+        standardized_cols = ['chr21_z_score']
 
         # 标准化 (Z-Score)
         df_standardized = df_clean.copy()
         scaler_std = StandardScaler()
-        df_standardized[numeric_cols] = scaler_std.fit_transform(df_standardized[numeric_cols])
+        df_standardized[standardized_cols] = scaler_std.fit_transform(df_standardized[standardized_cols])
 
         # 归一化 (Min-Max)
         df_normalized = df_clean.copy()
         scaler_norm = MinMaxScaler()
-        df_normalized[numeric_cols] = scaler_norm.fit_transform(df_normalized[numeric_cols])
+        df_normalized[standardized_cols] = scaler_norm.fit_transform(df_normalized[standardized_cols])
 
         # 步骤 7: 保存结果
         clean_path = output_path / f"{file_prefix}_cleaned.csv"
