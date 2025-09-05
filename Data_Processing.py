@@ -74,22 +74,6 @@ class DataPreprocessor:
 
         return df
 
-    def _handle_outliers(self, df: pd.DataFrame) -> pd.DataFrame:
-        standardized_cols = ['chr21_z_score']
-
-        # 使用IQR进行Winzorization处理统计异常值
-        for col in standardized_cols:
-            Q1 = df[col].quantile(0.25)
-            Q3 = df[col].quantile(0.75)
-            IQR = Q3 - Q1
-            lower_bound = Q1 - self.config.iqr_multiplier * IQR
-            upper_bound = Q3 + self.config.iqr_multiplier * IQR
-            print('数据异常处理',df[col][0], len(df[col]))
-            df[col] = df[col].clip(lower=lower_bound, upper=upper_bound)
-            print(len(df[col]))
-
-        return df
-
     def _visualize_key_vars(self, df: pd.DataFrame, output_dir: Path, prefix: str):
         """可视化关键变量的分布"""
         key_vars = ['gest_week', 'bmi', 'raw_reads', 'gc_content', 'chr21_z_score', 'chry_concentration']
@@ -119,10 +103,7 @@ class DataPreprocessor:
         df = self._rename_columns(df)
 
         # 步骤 2: 特征工程
-        df = self._engineer_features(df)
-
-        # 步骤 4: 处理异常值
-        df_clean = self._handle_outliers(df)
+        df_clean = self._engineer_features(df)
 
         # 步骤 5: 可视化
         self._visualize_key_vars(df_clean, output_path, file_prefix)
