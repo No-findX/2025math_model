@@ -1,12 +1,3 @@
-"""
-最终版V3：女胎异常判定（平衡策略模型）
-模型: 逻辑回归 (Logistic Regression)
-核心优化:
-1. QC下限调整为0.395。
-2. 采用“核心预测变量 + 关键控制变量”的平衡策略构建特征集，
-   兼顾模型的预测性能、解释性和逻辑严谨性。
-"""
-
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
@@ -26,12 +17,8 @@ from sklearn.impute import SimpleImputer
 warnings.filterwarnings("ignore")
 
 # 读取数据
-try:
-    path = "processed_female_data.csv"
-    df = pd.read_csv(path)
-except FileNotFoundError:
-    print(f"错误: 未找到数据文件 '{path}'")
-    exit()
+path = "processed_female_data.csv"
+df = pd.read_csv(path)
 
 
 # 标签：非空即异常
@@ -44,7 +31,7 @@ def make_label(x):
 
 df["label"] = df["染色体的非整倍体"].apply(make_label).astype(int)
 
-# 优化后的质量控制（QC Gate）
+# 质量控制（QC Gate）
 gc_col, read_col = "GC含量", "原始读段数"
 map_col, filt_col, dup_col = "在参考基因组上比对的比例", "被过滤掉读段数的比例", "重复读段的比例"
 
@@ -71,7 +58,7 @@ print(f"优化后的QC通过率: {pass_rate:.2%}")
 
 # 特征准备 (平衡策略)
 
-# 关键优化：采用“核心预测变量 + 关键控制变量”的平衡策略
+# “核心预测变量 + 关键控制变量”
 feature_cols = [
     #  核心预测变量 (经数据验证，P<0.05)
     "X染色体浓度_标准",
@@ -127,8 +114,7 @@ print(f"PR-AUC: {ap:.4f} | ROC-AUC: {auc:.4f}")
 print(f"Accuracy: {acc:.4f} | Precision: {prec:.4f} | Recall: {rec:.4f} | F1: {f1:.4f}")
 print("混淆矩阵:\n", cm)
 
-# 自动选择双阈值 
-
+# 自动选择双阈值
 def pick_threshold_cost(y_true, y_score, cost_fn=10.0, cost_fp=1.0):
     ts = np.linspace(0.01, 0.99, 99)
     best_t, best_cost = 0.5, np.inf
