@@ -97,7 +97,6 @@ class NIPTDataPreprocessor:
 
         features_to_scale = [col for col in features_to_scale_requested if col in raw_data.columns]
 
-        print(f"将对以下 {len(features_to_scale)} 个特征进行标准化: {features_to_scale}")
         scaled_features = self.scaler.fit_transform(raw_data[features_to_scale])
         scaled_df = pd.DataFrame(scaled_features,
                                      columns=[f + '_标准' for f in features_to_scale],
@@ -147,7 +146,6 @@ def main(file_path, male):
     # 预处理数据
     preprocessor, data = quick_preprocess(file_path, male, save_output=True)
 
-    print(f"预处理完成")
     print(f"最终数据量: {len(data)} 条")
     print(f"特征数量: {data.shape[1]} 个")
     return preprocessor, data
