@@ -1,34 +1,31 @@
 import pandas as pd
 import numpy as np
 import statsmodels.formula.api as smf
-import warnings
-
-warnings.filterwarnings('ignore')
 
 
 def load_data():
     data = pd.read_csv('processed_male_data.csv')
-    print(f"成功加载数据: {data.shape}")
+    print(f"数据: {data.shape}")
     return data
 
 
 def calculate_pseudo_r_squared(model_results):
-    # 计算伪R方 (Nakagawa & Schielzeth's R-squared).
 
+    # 计算伪R方 (Nakagawa & Schielzeth's R-squared).
     fixed_effects_variance = np.var(np.dot(model_results.model.exog, model_results.fe_params))
     random_effects_variance = float(model_results.cov_re.iloc[0, 0])
     residual_variance = model_results.scale
     total_variance = fixed_effects_variance + random_effects_variance + residual_variance
     marginal_r2 = fixed_effects_variance / total_variance
     conditional_r2 = (fixed_effects_variance + random_effects_variance) / total_variance
+
     return marginal_r2, conditional_r2
 
 
 def final_mixed_effects_model(data):
+
     # 使用statsmodels
-    print("\n" + "#" * 80)
-    print("线性混合效应模型分析 (Second Refined LMM) ")
-    print("#" * 80)
+    print("线性混合效应模型分析 ")
 
     # 数据准备
     data['y_logit'] = np.log(data['Y染色体浓度'] / (1 - data['Y染色体浓度']))
@@ -49,7 +46,6 @@ def final_mixed_effects_model(data):
     required_cols = [col.strip() for col in final_formula.split('~')[1].replace('\n', ' ').split('+')]
 
     # 数据验证和清洗步骤
-    print("\n正在验证模型所需变量的数据类型...")
     initial_rows = len(data)
     cols_to_validate = ['y_logit'] + required_cols
 
@@ -64,9 +60,7 @@ def final_mixed_effects_model(data):
     results = model.fit()
     print(results.summary())
 
-    print("\n" + "=" * 50)
     print(" 模型整体检验 (F-test and Pseudo R-squared) ")
-    print("=" * 50)
 
     # F检验：检验除截距外所有固定效应系数是否联合为0
     fixed_effects_terms = results.fe_params.index[1:]  # Exclude intercept
@@ -76,20 +70,15 @@ def final_mixed_effects_model(data):
     f_test_result = results.f_test(hypothesis_string)
 
     if hasattr(f_test_result.fvalue, '__len__') and len(f_test_result.fvalue.shape) > 0:
-        # 如果fvalue是数组类型
         if f_test_result.fvalue.shape == ():
-            # 如果是标量数组
             f_value = float(f_test_result.fvalue)
         elif len(f_test_result.fvalue.shape) == 2:
-            # 如果是二维数组
             f_value = f_test_result.fvalue[0][0]
         elif len(f_test_result.fvalue.shape) == 1:
-            # 如果是一维数组
             f_value = f_test_result.fvalue[0]
         else:
             f_value = float(f_test_result.fvalue)
     else:
-        # 如果fvalue直接就是标量
         f_value = float(f_test_result.fvalue)
 
     p_value_f = f_test_result.pvalue
@@ -104,13 +93,10 @@ def final_mixed_effects_model(data):
     marginal_r2, conditional_r2 = calculate_pseudo_r_squared(results)
     print(f"\n• 模型拟合优度 (Pseudo R-squared):")
     print(f"  - 边际 R² (Marginal R²)   = {marginal_r2:.4f}")
-    print(f"    (模型中的自变量(固定效应)解释了约 {marginal_r2 * 100:.2f}% 的方差)")
     print(f"  - 条件 R² (Conditional R²) = {conditional_r2:.4f}")
-    print(f"    (自变量和孕妇个体差异(固定+随机效应)共同解释了约 {conditional_r2 * 100:.2f}% 的方差)")
 
 
 def main():
-    """主程序"""
     data = load_data()
     if data is None:
         return
