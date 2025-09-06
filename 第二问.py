@@ -55,7 +55,7 @@ class NIPTFinalIntegratedModel:
             '孕周数值'] * week
         target_logit = np.log(0.04 / 0.96)
         random_effect_var = float(self.model_results.cov_re.iloc[0, 0])
-        if random_effect_var <= 1e-9: 
+        if random_effect_var <= 1e-9:
             if pred_logit_mean >= target_logit:
                 return 1.0
             else:
@@ -87,7 +87,7 @@ class NIPTFinalIntegratedModel:
             total_risk = 0
             for i in range(n_groups):
                 mask = (self.data['孕妇BMI'] >= all_boundaries[i]) & (self.data['孕妇BMI'] < all_boundaries[i + 1])
-                if i == n_groups - 1: 
+                if i == n_groups - 1:
                     mask = (self.data['孕妇BMI'] >= all_boundaries[i]) & (self.data['孕妇BMI'] <= all_boundaries[i + 1])
                 group_data = self.data[mask]
                 if len(group_data) < min_group_size: return 1e6
@@ -116,7 +116,8 @@ class NIPTFinalIntegratedModel:
                         popsize=15, tol=0.01, seed=42, disp=False
                     )
                     if result.success and result.fun < 1e5:
-                        tradeoff_curve.append({'s_threshold': s_threshold, 'min_risk': result.fun, 'solution': result.x})
+                        tradeoff_curve.append(
+                            {'s_threshold': s_threshold, 'min_risk': result.fun, 'solution': result.x})
                     else:
                         break
                 except Exception as e:
@@ -240,7 +241,7 @@ class NIPTFinalIntegratedModel:
             print(f"  组{i + 1}: 基准时点={baseline_week:.1f}周, "
                   f"引入误差后时点= {mean_week:.1f} ± {std_week:.2f}周 (95% CI: [{ci_lower:.1f}, {ci_upper:.1f}])")
 
-    def run(self, k_range=[3, 4, 5], s_start=0.90, s_step=0.01, s_max=0.98):
+    def run(self, k_range, s_start=0.90, s_step=0.01, s_max=0.98):
         if not self.load_and_prepare_data() or not self.fit_baseline_model():
             return
 
@@ -261,7 +262,7 @@ class NIPTFinalIntegratedModel:
                 "final_strategy": self.final_strategy,
                 "sensitivity_results": self.sensitivity_results
             }, f)
-    
+
     def load_results(self, filename="model_results.pkl"):
         """从文件加载模型结果"""
         try:
@@ -277,8 +278,9 @@ class NIPTFinalIntegratedModel:
         except FileNotFoundError:
             return 0
 
+
 def plot_tradeoff_curves(model):
-    plt.figure(figsize=(7,5))
+    plt.figure(figsize=(7, 5))
     palette = sns.color_palette("deep")
     has_data = False
 
@@ -302,17 +304,18 @@ def plot_tradeoff_curves(model):
     plt.tight_layout()
     plt.savefig("tradeoff_curve_pub.png", dpi=300)
 
+
 def plot_final_strategy(model):
     groups_info = model.unpack_and_display_strategy(model.final_strategy)
     df = pd.DataFrame([
-        {"组别": f"组{i+1}", "推荐孕周": g['week'], "BMI范围": g['bmi_range']}
+        {"组别": f"组{i + 1}", "推荐孕周": g['week'], "BMI范围": g['bmi_range']}
         for i, g in enumerate(groups_info)
     ])
 
-    plt.figure(figsize=(6,5))
+    plt.figure(figsize=(6, 5))
     bars = plt.bar(df["组别"], df["推荐孕周"], color="steelblue", edgecolor="black")
     for i, row in df.iterrows():
-        plt.text(i, row["推荐孕周"]+0.2, f"{row['推荐孕周']:.1f}周", 
+        plt.text(i, row["推荐孕周"] + 0.2, f"{row['推荐孕周']:.1f}周",
                  ha='center', fontsize=10)
     plt.ylabel("推荐孕周", fontsize=12)
     plt.title("最优分组策略", fontsize=14, weight="bold")
@@ -320,33 +323,35 @@ def plot_final_strategy(model):
     plt.tight_layout()
     plt.savefig("final_strategy_pub.png", dpi=300)
 
+
 def plot_sensitivity_analysis(model):
     if not model.sensitivity_results:
         print("未找到敏感性分析结果")
         return
 
     df = pd.DataFrame([
-        {"组别": f"组{i+1}", 
+        {"组别": f"组{i + 1}",
          "基准孕周": res['baseline_week'],
          "均值孕周": res['mean_week'],
-         "下界": res['ci_95'][0], 
+         "下界": res['ci_95'][0],
          "上界": res['ci_95'][1]}
         for i, res in model.sensitivity_results.items()
     ])
 
-    plt.figure(figsize=(6,5))
+    plt.figure(figsize=(6, 5))
     bars = plt.bar(df["组别"], df["均值孕周"],
-                   yerr=[df["均值孕周"]-df["下界"], df["上界"]-df["均值孕周"]],
+                   yerr=[df["均值孕周"] - df["下界"], df["上界"] - df["均值孕周"]],
                    capsize=4, color="lightgray", edgecolor="black",
                    label="模拟均值 ±95%CI")
     plt.scatter(df["组别"], df["基准孕周"], color="red", zorder=5, label="基准孕周")
-    
+
     plt.ylabel("推荐孕周", fontsize=12)
     plt.title("敏感性分析", fontsize=14, weight="bold")
     plt.legend(frameon=False)
     sns.despine()
     plt.tight_layout()
     plt.savefig("sensitivity_pub.png", dpi=300)
+
 
 if __name__ == '__main__':
     analyzer = NIPTFinalIntegratedModel()
@@ -355,7 +360,7 @@ if __name__ == '__main__':
     if r1 == 0:
         analyzer.run(k_range=[3, 4, 5], s_start=0.90, s_step=0.001, s_max=0.97)
         analyzer.save_results()
-    
+
     plot_final_strategy(analyzer)
     plot_sensitivity_analysis(analyzer)
     plot_tradeoff_curves(analyzer)

@@ -1,13 +1,9 @@
-# NIPT数学建模竞赛 - 第三问完整解决方案
-# 包含主要建模和敏感性分析，优化版本，无图形输出
-
 import pandas as pd
 import numpy as np
-from scipy import optimize, stats
+from scipy import optimize
 import statsmodels.formula.api as smf
 import warnings
 import time
-from functools import lru_cache
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -22,8 +18,8 @@ class NIPTCompleteModel:
         self.successful_strategies = []
 
         # 预计算相关
-        self.week_grid = np.arange(10, 25.1, 0.5)  # 10.0, 10.5, 11.0, ..., 25.0
-        self.prediction_table = None  # 预计算表：[个体数 × 时点数]
+        self.week_grid = np.arange(10, 25.1, 0.5)
+        self.prediction_table = None  # 预计算表
         self.individual_ids = None
 
         # 性能统计
@@ -41,22 +37,18 @@ class NIPTCompleteModel:
         }
 
     def load_and_prepare_data(self):
-        print("第三问：NIPT检测时点优化与敏感性分析")
-        try:
-            self.data = pd.read_csv(self.data_path)
-            self.data = self.data[(self.data['Y染色体浓度'] > 0) & (self.data['Y染色体浓度'] < 1)].copy()
-            required_cols = ['孕妇BMI', '孕周数值', '孕妇代码', '身高', '体重', '年龄', 'X染色体浓度_标准',
-                             '18号染色体的Z值_标准', '原始读段数_标准', '被过滤掉读段数的比例_标准']
-            self.data.dropna(subset=required_cols, inplace=True)
 
-            # 为每个个体分配唯一ID
-            self.data.reset_index(drop=True, inplace=True)
-            self.individual_ids = self.data.index.tolist()
+        self.data = pd.read_csv(self.data_path)
+        self.data = self.data[(self.data['Y染色体浓度'] > 0) & (self.data['Y染色体浓度'] < 1)].copy()
+        required_cols = ['孕妇BMI', '孕周数值', '孕妇代码', '身高', '体重', '年龄', 'X染色体浓度_标准',
+                         '18号染色体的Z值_标准', '原始读段数_标准', '被过滤掉读段数的比例_标准']
+        self.data.dropna(subset=required_cols, inplace=True)
 
-            return True
-        except FileNotFoundError:
-            print("错误：找不到数据文件")
-            return False
+        # 分配ID
+        self.data.reset_index(drop=True, inplace=True)
+        self.individual_ids = self.data.index.tolist()
+
+        return True
 
     def fit_upgraded_model(self):
 
@@ -69,21 +61,17 @@ class NIPTCompleteModel:
 
         formula = "y_logit ~ X_conc_std + Z18_std + 身高 + 体重 + 年龄 + raw_reads_std + filtered_rate_std + 孕周数值"
 
-        try:
-            model = smf.mixedlm(formula, self.data, groups=self.data["孕妇代码"])
-            self.model_results = model.fit()
+        model = smf.mixedlm(formula, self.data, groups=self.data["孕妇代码"])
+        self.model_results = model.fit()
 
-            # 提取模型参数
-            self._model_params = self.model_results.fe_params
-            self._random_effects = self.model_results.random_effects
+        # 提取模型参数
+        self._model_params = self.model_results.fe_params
+        self._random_effects = self.model_results.random_effects
 
-            return True
-        except Exception as e:
-            print(f"模型拟合失败: {e}")
-            return False
+        return True
 
     def precompute_all_predictions(self):
-        """核心优化：预计算所有个体在所有时点的Y染色体浓度"""
+        """预计算所有个体在所有时点的Y染色体浓度"""
 
         n_individuals = len(self.data)
         n_timepoints = len(self.week_grid)
@@ -154,7 +142,7 @@ class NIPTCompleteModel:
         return 0.5 * failure_risk + 0.3 * time_risk + 0.2 * detection_time_risk
 
     def objective_function_wrapper(self, n_groups, global_success_threshold):
-        """优化版目标函数：使用预计算表"""
+        """使用预计算表"""
         min_bmi, max_bmi = self.data['孕妇BMI'].min(), self.data['孕妇BMI'].max()
         min_group_size = len(self.data) * 0.05
         bmi_values = self.data['孕妇BMI'].values
@@ -203,38 +191,35 @@ class NIPTCompleteModel:
         return objective
 
     def generate_smart_initial_guess(self, n_groups, s_threshold):
-        """智能初始解生成策略"""
-        try:
-            if self.successful_strategies:
-                similar_strategies = [s for s in self.successful_strategies if s['k'] == n_groups]
-                if similar_strategies:
-                    base_solution = similar_strategies[-1]['solution']
-                    boundaries = base_solution[:n_groups - 1]
-                    timepoints = np.clip(base_solution[n_groups - 1:] + 0.3, 10, 25)
-                    return np.concatenate([boundaries, timepoints])
 
-            _, group_bins = pd.qcut(self.data['孕妇BMI'], q=n_groups, labels=False, retbins=True, duplicates='drop')
-            initial_boundaries = group_bins[1:-1]
-            initial_timepoints = []
-            for i in range(n_groups):
-                mask = (self.data['孕妇BMI'] >= group_bins[i]) & (self.data['孕妇BMI'] <= group_bins[i + 1])
-                group_indices = np.where(mask)[0]
-                best_week = 25.0
-                for week in [12, 14, 16, 18, 20, 22, 24]:
-                    if self.calculate_group_success_prob_fast(week, group_indices) >= s_threshold:
-                        best_week = week
-                        break
-                initial_timepoints.append(best_week)
+        # 生成初始解
+        if self.successful_strategies:
+            similar_strategies = [s for s in self.successful_strategies if s['k'] == n_groups]
+            if similar_strategies:
+                base_solution = similar_strategies[-1]['solution']
+                boundaries = base_solution[:n_groups - 1]
+                timepoints = np.clip(base_solution[n_groups - 1:] + 0.3, 10, 25)
+                return np.concatenate([boundaries, timepoints])
 
-            for i in range(1, len(initial_timepoints)):
-                if initial_timepoints[i] < initial_timepoints[i - 1]:
-                    initial_timepoints[i] = initial_timepoints[i - 1]
-            return np.concatenate([initial_boundaries, initial_timepoints])
-        except Exception as e:
-            print(f"    智能初始解生成失败: {e}")
-            return None
+        _, group_bins = pd.qcut(self.data['孕妇BMI'], q=n_groups, labels=False, retbins=True, duplicates='drop')
+        initial_boundaries = group_bins[1:-1]
+        initial_timepoints = []
+        for i in range(n_groups):
+            mask = (self.data['孕妇BMI'] >= group_bins[i]) & (self.data['孕妇BMI'] <= group_bins[i + 1])
+            group_indices = np.where(mask)[0]
+            best_week = 25.0
+            for week in [12, 14, 16, 18, 20, 22, 24]:
+                if self.calculate_group_success_prob_fast(week, group_indices) >= s_threshold:
+                    best_week = week
+                    break
+            initial_timepoints.append(best_week)
 
-    def run_optimized_search(self, k_range=[3, 4, 5], s_start=0.93, s_end=0.91):
+        for i in range(1, len(initial_timepoints)):
+            if initial_timepoints[i] < initial_timepoints[i - 1]:
+                initial_timepoints[i] = initial_timepoints[i - 1]
+        return np.concatenate([initial_boundaries, initial_timepoints])
+
+    def run_optimized_search(self, k_range, s_start=0.93, s_end=0.91):
         """优化版搜索：使用预计算表"""
         if not self.load_and_prepare_data() or not self.fit_upgraded_model(): return
         if not self.precompute_all_predictions(): return
@@ -251,16 +236,13 @@ class NIPTCompleteModel:
 
                 for attempt in range(max_attempts):
                     initial_guess = self.generate_smart_initial_guess(k, current_s)
-                    try:
-                        result = optimize.differential_evolution(
-                            objective_func, bounds, x0=initial_guess, strategy='best1bin',
-                            maxiter=60, popsize=10, tol=0.015, seed=42 + attempt,
-                            disp=False, workers=1, updating='deferred'
-                        )
-                        if result.success and result.fun < best_risk:
-                            best_result, best_risk = result, result.fun
-                    except Exception as e:
-                        print(f" 异常: {str(e)[:50]}...")
+                    result = optimize.differential_evolution(
+                        objective_func, bounds, x0=initial_guess, strategy='best1bin',
+                        maxiter=60, popsize=10, tol=0.015, seed=42 + attempt,
+                        disp=False, workers=1, updating='deferred'
+                    )
+                    if result.success and result.fun < best_risk:
+                        best_result, best_risk = result, result.fun
 
                 if best_result and best_risk < 1e5:
                     self.successful_strategies.append({
@@ -273,31 +255,29 @@ class NIPTCompleteModel:
         self.analyze_and_present_final_solution()
 
     def analyze_and_present_final_solution(self):
-        """结果分析和展示"""
+
+        # 结果分析和展示
         if not self.successful_strategies:
-            print("\n优化搜索失败，在所有尝试的K和S组合下均未找到可行解。")
+            print("\n优化失败")
             return
 
         aic_results = {}
-        print("\n【模型选择：寻找最优分组数 K* (基于AIC)】")
+        print("\n寻找最优分组数 K* (基于AIC)")
         for strategy in self.successful_strategies:
             k, risk = strategy['k'], strategy['min_risk']
             n_samples, num_params = len(self.data), 2 * k - 1
             aic_score = 2 * num_params + n_samples * np.log(risk)
             aic_results[k] = aic_score
 
-        if not aic_results:
-            print("\n未能计算任何AIC分数，无法选择最优K。")
-            return
-
         best_k = min(aic_results, key=aic_results.get)
-        print(f"\nK={best_k} 使得AIC分数最小，是理论上的最优分组数。")
+        print(f"\nK={best_k} AIC最小，理论最优")
         best_strategy = next(s for s in self.successful_strategies if s['k'] == best_k)
         self.unpack_and_display_strategy(best_strategy)
 
         return best_strategy
 
     def unpack_and_display_strategy(self, strategy):
+
         """解析和展示策略"""
         k, s_threshold = strategy['k'], strategy['s_threshold']
         solution = strategy['solution']
@@ -306,7 +286,7 @@ class NIPTCompleteModel:
         timepoints = solution[k - 1:]
         all_boundaries = [min_bmi] + list(boundaries) + [max_bmi]
 
-        print(f"\n【最终最优策略 (K*={k}, 最高可行成功率≈{s_threshold:.1%})】")
+        print(f"\n最优策略 (K*={k}, 最高可行成功率≈{s_threshold:.4%})】")
         for i in range(k):
             bmi_range = (all_boundaries[i], all_boundaries[i + 1])
             if i == k - 1:
@@ -555,7 +535,8 @@ class NIPTCompleteModel:
                             'success_rate': perturbed_rate,
                             'change': perturbed_rate - base_rate
                         })
-                        print(f"  边界{i + 1}{delta:+}BMI: 成功率={perturbed_rate:.4f} (变化{perturbed_rate - base_rate:+.4f})")
+                        print(
+                            f"  边界{i + 1}{delta:+}BMI: 成功率={perturbed_rate:.4f} (变化{perturbed_rate - base_rate:+.4f})")
                     except:
                         pass  # 忽略无效的边界调整
 
@@ -614,7 +595,7 @@ class NIPTCompleteModel:
 
         return True
 
-    def run_complete_analysis(self, k_range=[3, 4, 5]):
+    def run_complete_analysis(self, k_range):
         """运行完整分析：包括主要建模和敏感性分析"""
 
         # 1. 运行主要优化模型
@@ -627,10 +608,10 @@ class NIPTCompleteModel:
         # 获取最佳策略
         best_strategy = self.successful_strategies[-1]  # 使用最后一个（通常是最好的）策略
 
-        # 2. 参数敏感性分析
+        # 参数敏感性分析
         param_results = self.parameter_sensitivity_analysis(best_strategy)
 
-        # 3. 蒙特卡洛模拟 - 分别分析不同类型的误差
+        # 蒙特卡洛模拟
 
         # 测量噪声影响
         mc_results_measurement = self.monte_carlo_simulation(
@@ -655,7 +636,6 @@ class NIPTCompleteModel:
         # 4. 生成综合报告
         self.generate_sensitivity_report(best_strategy)
 
-
         return {
             'best_strategy': best_strategy,
             'parameter_sensitivity': param_results,
@@ -664,7 +644,6 @@ class NIPTCompleteModel:
 
 
 def plot_final_strategy(strategy, data):
-    import pandas as pd
     k = strategy['k']
     solution = strategy['solution']
     min_bmi, max_bmi = data['孕妇BMI'].min(), data['孕妇BMI'].max()
@@ -673,16 +652,16 @@ def plot_final_strategy(strategy, data):
     all_boundaries = [min_bmi] + list(boundaries) + [max_bmi]
 
     df = pd.DataFrame({
-        "组别": [f"组{i+1}" for i in range(k)],
+        "组别": [f"组{i + 1}" for i in range(k)],
         "推荐孕周": timepoints,
-        "BMI区间": [f"[{all_boundaries[i]:.1f}, {all_boundaries[i+1]:.1f}]"
-                   for i in range(k)]
+        "BMI区间": [f"[{all_boundaries[i]:.1f}, {all_boundaries[i + 1]:.1f}]"
+                    for i in range(k)]
     })
 
-    plt.figure(figsize=(6,5))
+    plt.figure(figsize=(6, 5))
     bars = plt.bar(df["组别"], df["推荐孕周"], color="steelblue", edgecolor="black")
     for i, row in df.iterrows():
-        plt.text(i, row["推荐孕周"]+0.2,
+        plt.text(i, row["推荐孕周"] + 0.2,
                  f"{row['推荐孕周']:.1f}周\nBMI {row['BMI区间']}",
                  ha='center', fontsize=9)
     plt.ylabel("推荐孕周", fontsize=12)
@@ -691,12 +670,13 @@ def plot_final_strategy(strategy, data):
     plt.tight_layout()
     plt.savefig("third_final_strategy_pub.png", dpi=300)
 
+
 def plot_parameter_sensitivity(param_results):
-    # 1. 时点敏感性
+    # 时点敏感性
     df_time = pd.DataFrame(param_results['timepoint'])
-    plt.figure(figsize=(6,5))
+    plt.figure(figsize=(6, 5))
     plt.plot(df_time['delta'], df_time['success_rate'],
-            marker='o', linewidth=2, color="steelblue")
+             marker='o', linewidth=2, color="steelblue")
     plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
     plt.xlabel("检测时点扰动 (Δ周)", fontsize=12)
     plt.ylabel("全局成功率", fontsize=12)
@@ -706,10 +686,10 @@ def plot_parameter_sensitivity(param_results):
     plt.savefig("third_time_sensitivity_pub.png", dpi=300)
     plt.show()
 
-    # 2. BMI边界敏感性
+    # BMI边界敏感性
     if 'boundary' in param_results:
         df_bmi = pd.DataFrame(param_results['boundary'])
-        plt.figure(figsize=(7,5))
+        plt.figure(figsize=(7, 5))
         sns.barplot(data=df_bmi, x='delta', y='success_rate',
                     hue='boundary_idx', palette="deep", edgecolor="black")
         plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
@@ -721,9 +701,10 @@ def plot_parameter_sensitivity(param_results):
         plt.tight_layout()
         plt.savefig("third_bmi_sensitivity_pub.png", dpi=300)
 
+
 def plot_monte_carlo(mc_results):
-    # 1. 分布对比
-    plt.figure(figsize=(7,5))
+    # 分布对比
+    plt.figure(figsize=(7, 5))
     for error_type, results in mc_results.items():
         sns.kdeplot(results['all_simulations'], label=error_type, linewidth=2)
     plt.xlabel("全局成功率", fontsize=12)
@@ -735,14 +716,14 @@ def plot_monte_carlo(mc_results):
     plt.savefig("third_mc_density_pub.png", dpi=300)
     plt.show()
 
-    # 2. 箱线图对比
+    # 箱线图对比
     mc_data = []
     for error_type, results in mc_results.items():
         for val in results['all_simulations']:
             mc_data.append({"误差类型": error_type, "成功率": val})
     df_mc = pd.DataFrame(mc_data)
 
-    plt.figure(figsize=(7,5))
+    plt.figure(figsize=(7, 5))
     sns.boxplot(data=df_mc, x="误差类型", y="成功率",
                 palette="pastel", showfliers=False)
     plt.ylabel("全局成功率", fontsize=12)
@@ -751,7 +732,7 @@ def plot_monte_carlo(mc_results):
     plt.tight_layout()
     plt.savefig("third_mc_box_pub.png", dpi=300)
 
-# 主程序入口
+
 if __name__ == '__main__':
     # 创建模型实例并运行完整分析
     solver = NIPTCompleteModel()
