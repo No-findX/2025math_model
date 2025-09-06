@@ -1,9 +1,3 @@
-# NIPT数学建模竞赛 - 第二问解决方案
-# 核心功能：
-# 1. 自动寻优最佳分组数K和成功率S。
-# 2. 使用修正后的指数风险函数和权重。
-# 3. 包含完整的敏感性分析，评估策略的稳健性。
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,7 +14,7 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 class NIPTFinalIntegratedModel:
-    def __init__(self, data_path='processed_male_data.csv'):
+    def __init__(self, data_path='processed_nipt_data.csv'):
         self.data_path = data_path
         self.data = None
         self.model_results = None
@@ -198,7 +192,7 @@ class NIPTFinalIntegratedModel:
             print("\n没有最终策略可供分析，跳过敏感性分析。")
             return
 
-        print(f"\n分析基准策略：K={self.final_strategy['k']}, S≈{self.final_strategy['s']:.0%}")
+        print(f"\n分析基准策略：K={self.final_strategy['k']}, S≈{self.final_strategy['s']:.4%}")
 
         k = self.final_strategy['k']
         s_threshold = self.final_strategy['s']
