@@ -7,15 +7,13 @@ import statsmodels.formula.api as smf
 import warnings
 import pickle
 
-warnings.filterwarnings('ignore')
-
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
 
 class NIPTFinalIntegratedModel:
-    def __init__(self, data_path='processed_nipt_data.csv'):
+    def __init__(self, data_path='processed_male_data.csv'):
         self.data_path = data_path
         self.data = None
         self.model_results = None
@@ -143,11 +141,11 @@ class NIPTFinalIntegratedModel:
             aic_results[k] = aic_score
 
         if not aic_results:
-            print("\n未能计算任何AIC分数，无法选择最优K。")
+            print("\n无法计算AIC")
             return
 
         best_k = min(aic_results, key=aic_results.get)
-        print(f"\nK={best_k} 使得AIC分数最小，是理论上的最优分组数。")
+        print(f"\nK={best_k} AIC最小，理论最优")
 
         best_k_curve = self.optimization_results_by_k[best_k]
         s_values = [res['s_threshold'] for res in best_k_curve]
@@ -161,7 +159,7 @@ class NIPTFinalIntegratedModel:
             optimal_s = s_values[0]
 
         print(f"\n【决策分析 (K={best_k})】")
-        print(f"对于最优分组数K={best_k}，分析其风险-成功率曲线，找到最佳平衡点为 S* ≈ {optimal_s:.0%}")
+        print(f"对最优分组K={best_k}，最佳平衡点为 S* ≈ {optimal_s:.4%}")
 
         best_result = next(res for res in best_k_curve if res['s_threshold'] == optimal_s)
 
@@ -190,7 +188,7 @@ class NIPTFinalIntegratedModel:
 
     def run_sensitivity_analysis(self, error_level=0.05, n_simulations=100):
         if not self.final_strategy:
-            print("\n没有最终策略可供分析，跳过敏感性分析。")
+            print("\n无最终策略")
             return
 
         print(f"\n分析基准策略：K={self.final_strategy['k']}, S≈{self.final_strategy['s']:.4%}")
