@@ -5,6 +5,7 @@ import seaborn as sns
 from scipy import optimize, stats
 import statsmodels.formula.api as smf
 import warnings
+import pickle
 
 warnings.filterwarnings('ignore')
 
@@ -252,7 +253,111 @@ class NIPTFinalIntegratedModel:
         if self.final_strategy:
             self.run_sensitivity_analysis()
 
+    def save_results(self, filename="model_results.pkl"):
+        """保存模型结果到文件"""
+        with open(filename, "wb") as f:
+            pickle.dump({
+                "data": self.data,
+                "model_results": self.model_results,
+                "optimization_results_by_k": self.optimization_results_by_k,
+                "final_strategy": self.final_strategy,
+                "sensitivity_results": self.sensitivity_results
+            }, f)
+    
+    def load_results(self, filename="model_results.pkl"):
+        """从文件加载模型结果"""
+        try:
+            with open(filename, "rb") as f:
+                results = pickle.load(f)
+                if not results:
+                    return 0
+                self.data = results["data"]
+                self.model_results = results["model_results"]
+                self.optimization_results_by_k = results["optimization_results_by_k"]
+                self.final_strategy = results["final_strategy"]
+                self.sensitivity_results = results["sensitivity_results"]
+        except FileNotFoundError:
+            return 0
+
+def plot_tradeoff_curves(model):
+    plt.figure(figsize=(7,5))
+    palette = sns.color_palette("deep")
+    has_data = False
+
+    for idx, (k, curve) in enumerate(model.optimization_results_by_k.items()):
+        if not curve: continue
+        s_values = [res['s_threshold'] for res in curve]
+        r_values = [res['min_risk'] for res in curve]
+        plt.plot(s_values, r_values, marker='o', markersize=4,
+                 linewidth=2, label=f"K={k}", color=palette[idx])
+        has_data = True
+
+    if not has_data:
+        print("没有数据可绘制，请检查优化是否成功")
+        return
+
+    plt.xlabel("成功率阈值 S", fontsize=12)
+    plt.ylabel("最小风险分数", fontsize=12)
+    plt.title("风险-成功率权衡曲线", fontsize=14, weight="bold")
+    plt.legend(frameon=False)
+    sns.despine()  # 去掉上和右边框
+    plt.tight_layout()
+    plt.savefig("tradeoff_curve_pub.png", dpi=300)
+
+def plot_final_strategy(model):
+    groups_info = model.unpack_and_display_strategy(model.final_strategy)
+    df = pd.DataFrame([
+        {"组别": f"组{i+1}", "推荐孕周": g['week'], "BMI范围": g['bmi_range']}
+        for i, g in enumerate(groups_info)
+    ])
+
+    plt.figure(figsize=(6,5))
+    bars = plt.bar(df["组别"], df["推荐孕周"], color="steelblue", edgecolor="black")
+    for i, row in df.iterrows():
+        plt.text(i, row["推荐孕周"]+0.2, f"{row['推荐孕周']:.1f}周", 
+                 ha='center', fontsize=10)
+    plt.ylabel("推荐孕周", fontsize=12)
+    plt.title("最优分组策略", fontsize=14, weight="bold")
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("final_strategy_pub.png", dpi=300)
+
+def plot_sensitivity_analysis(model):
+    if not model.sensitivity_results:
+        print("未找到敏感性分析结果")
+        return
+
+    df = pd.DataFrame([
+        {"组别": f"组{i+1}", 
+         "基准孕周": res['baseline_week'],
+         "均值孕周": res['mean_week'],
+         "下界": res['ci_95'][0], 
+         "上界": res['ci_95'][1]}
+        for i, res in model.sensitivity_results.items()
+    ])
+
+    plt.figure(figsize=(6,5))
+    bars = plt.bar(df["组别"], df["均值孕周"],
+                   yerr=[df["均值孕周"]-df["下界"], df["上界"]-df["均值孕周"]],
+                   capsize=4, color="lightgray", edgecolor="black",
+                   label="模拟均值 ±95%CI")
+    plt.scatter(df["组别"], df["基准孕周"], color="red", zorder=5, label="基准孕周")
+    
+    plt.ylabel("推荐孕周", fontsize=12)
+    plt.title("敏感性分析", fontsize=14, weight="bold")
+    plt.legend(frameon=False)
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("sensitivity_pub.png", dpi=300)
 
 if __name__ == '__main__':
     analyzer = NIPTFinalIntegratedModel()
-    analyzer.run(k_range=[3, 4, 5], s_start=0.90, s_step=0.001, s_max=0.97)
+
+    r1 = analyzer.load_results()
+    if r1 == 0:
+        analyzer.run(k_range=[3, 4, 5], s_start=0.90, s_step=0.001, s_max=0.97)
+        analyzer.save_results()
+    
+    plot_final_strategy(analyzer)
+    plot_sensitivity_analysis(analyzer)
+    plot_tradeoff_curves(analyzer)
