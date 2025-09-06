@@ -8,6 +8,8 @@ import statsmodels.formula.api as smf
 import warnings
 import time
 from functools import lru_cache
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 warnings.filterwarnings('ignore')
 
@@ -661,6 +663,94 @@ class NIPTCompleteModel:
         }
 
 
+def plot_final_strategy(strategy, data):
+    import pandas as pd
+    k = strategy['k']
+    solution = strategy['solution']
+    min_bmi, max_bmi = data['孕妇BMI'].min(), data['孕妇BMI'].max()
+    boundaries = np.sort(solution[:k - 1])
+    timepoints = solution[k - 1:]
+    all_boundaries = [min_bmi] + list(boundaries) + [max_bmi]
+
+    df = pd.DataFrame({
+        "组别": [f"组{i+1}" for i in range(k)],
+        "推荐孕周": timepoints,
+        "BMI区间": [f"[{all_boundaries[i]:.1f}, {all_boundaries[i+1]:.1f}]"
+                   for i in range(k)]
+    })
+
+    plt.figure(figsize=(6,5))
+    bars = plt.bar(df["组别"], df["推荐孕周"], color="steelblue", edgecolor="black")
+    for i, row in df.iterrows():
+        plt.text(i, row["推荐孕周"]+0.2,
+                 f"{row['推荐孕周']:.1f}周\nBMI {row['BMI区间']}",
+                 ha='center', fontsize=9)
+    plt.ylabel("推荐孕周", fontsize=12)
+    plt.title("最优分组策略", fontsize=14, weight="bold")
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("third_final_strategy_pub.png", dpi=300)
+
+def plot_parameter_sensitivity(param_results):
+    # 1. 时点敏感性
+    df_time = pd.DataFrame(param_results['timepoint'])
+    plt.figure(figsize=(6,5))
+    plt.plot(df_time['delta'], df_time['success_rate'],
+            marker='o', linewidth=2, color="steelblue")
+    plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
+    plt.xlabel("检测时点扰动 (Δ周)", fontsize=12)
+    plt.ylabel("全局成功率", fontsize=12)
+    plt.title("检测时点敏感性分析", fontsize=14, weight="bold")
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("third_time_sensitivity_pub.png", dpi=300)
+    plt.show()
+
+    # 2. BMI边界敏感性
+    if 'boundary' in param_results:
+        df_bmi = pd.DataFrame(param_results['boundary'])
+        plt.figure(figsize=(7,5))
+        sns.barplot(data=df_bmi, x='delta', y='success_rate',
+                    hue='boundary_idx', palette="deep", edgecolor="black")
+        plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
+        plt.xlabel("BMI 边界扰动 (Δ)", fontsize=12)
+        plt.ylabel("全局成功率", fontsize=12)
+        plt.title("BMI 边界敏感性分析", fontsize=14, weight="bold")
+        plt.legend(title="边界编号", frameon=False)
+        sns.despine()
+        plt.tight_layout()
+        plt.savefig("third_bmi_sensitivity_pub.png", dpi=300)
+
+def plot_monte_carlo(mc_results):
+    # 1. 分布对比
+    plt.figure(figsize=(7,5))
+    for error_type, results in mc_results.items():
+        sns.kdeplot(results['all_simulations'], label=error_type, linewidth=2)
+    plt.xlabel("全局成功率", fontsize=12)
+    plt.ylabel("密度", fontsize=12)
+    plt.title("不同误差类型下的成功率分布", fontsize=14, weight="bold")
+    plt.legend(frameon=False)
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("third_mc_density_pub.png", dpi=300)
+    plt.show()
+
+    # 2. 箱线图对比
+    mc_data = []
+    for error_type, results in mc_results.items():
+        for val in results['all_simulations']:
+            mc_data.append({"误差类型": error_type, "成功率": val})
+    df_mc = pd.DataFrame(mc_data)
+
+    plt.figure(figsize=(7,5))
+    sns.boxplot(data=df_mc, x="误差类型", y="成功率",
+                palette="pastel", showfliers=False)
+    plt.ylabel("全局成功率", fontsize=12)
+    plt.title("不同误差情景下的敏感性分析", fontsize=14, weight="bold")
+    sns.despine()
+    plt.tight_layout()
+    plt.savefig("third_mc_box_pub.png", dpi=300)
+
 # 主程序入口
 if __name__ == '__main__':
     # 创建模型实例并运行完整分析
@@ -676,3 +766,7 @@ if __name__ == '__main__':
         print(f"敏感性分析完成: 已评估{len(solver.monte_carlo_results)}种误差类型的影响")
     else:
         print("分析失败，请检查数据文件和参数设置")
+
+    plot_final_strategy(results['best_strategy'], solver.data)
+    plot_parameter_sensitivity(results['parameter_sensitivity'])
+    plot_monte_carlo(results['monte_carlo_results'])
