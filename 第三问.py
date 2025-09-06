@@ -59,7 +59,7 @@ class NIPTCompleteModel:
         }
         self.data.rename(columns=rename_dict, inplace=True)
 
-        formula = "y_logit ~ X_conc_std + Z18_std + 身高 + 体重 + 年龄 + raw_reads_std + filtered_rate_std + 孕周数值"
+        formula = "y_logit ~ X_conc_std + Z18_std + 身高 + 孕妇BMI + 年龄 + raw_reads_std + filtered_rate_std + 孕周数值"
 
         model = smf.mixedlm(formula, self.data, groups=self.data["孕妇代码"])
         self.model_results = model.fit()
@@ -83,7 +83,7 @@ class NIPTCompleteModel:
                       self._model_params['X_conc_std'] * self.data['X_conc_std'].values +
                       self._model_params['Z18_std'] * self.data['Z18_std'].values +
                       self._model_params['身高'] * self.data['身高'].values +
-                      self._model_params['体重'] * self.data['体重'].values +
+                      self._model_params['孕妇BMI'] * self.data['孕妇BMI'].values +
                       self._model_params['年龄'] * self.data['年龄'].values +
                       self._model_params['raw_reads_std'] * self.data['raw_reads_std'].values +
                       self._model_params['filtered_rate_std'] * self.data['filtered_rate_std'].values)

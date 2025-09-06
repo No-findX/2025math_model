@@ -21,7 +21,6 @@ path = "processed_female_data.csv"
 df = pd.read_csv(path)
 
 
-# 标签：非空即异常
 def make_label(x):
     if pd.isna(x): return 0
     sx = str(x).strip()
