@@ -39,9 +39,7 @@ class NIPTCompleteModel:
         }
 
     def load_and_prepare_data(self):
-        print("=" * 80)
         print("第三问：NIPT检测时点优化与敏感性分析")
-        print("=" * 80)
         try:
             self.data = pd.read_csv(self.data_path)
             self.data = self.data[(self.data['Y染色体浓度'] > 0) & (self.data['Y染色体浓度'] < 1)].copy()
@@ -53,18 +51,12 @@ class NIPTCompleteModel:
             self.data.reset_index(drop=True, inplace=True)
             self.individual_ids = self.data.index.tolist()
 
-            print(f"数据加载完成，有效数据: {self.data.shape}")
-            print(f"个体数量: {len(self.individual_ids)}")
-            print(f"时点网格: {len(self.week_grid)}个点 (10.0-25.0周，0.5周间隔)")
             return True
         except FileNotFoundError:
             print("错误：找不到数据文件")
             return False
 
     def fit_upgraded_model(self):
-        print("\n" + "=" * 60)
-        print("步骤1：拟合多因素预测模型")
-        print("=" * 60)
 
         self.data['y_logit'] = np.log(self.data['Y染色体浓度'] / (1 - self.data['Y染色体浓度']))
         rename_dict = {
@@ -78,7 +70,6 @@ class NIPTCompleteModel:
         try:
             model = smf.mixedlm(formula, self.data, groups=self.data["孕妇代码"])
             self.model_results = model.fit()
-            print("多因素预测模型拟合成功")
 
             # 提取模型参数
             self._model_params = self.model_results.fe_params
@@ -91,14 +82,9 @@ class NIPTCompleteModel:
 
     def precompute_all_predictions(self):
         """核心优化：预计算所有个体在所有时点的Y染色体浓度"""
-        print("\n" + "=" * 60)
-        print("步骤2：预计算所有个体的浓度预测表")
-        print("=" * 60)
 
         n_individuals = len(self.data)
         n_timepoints = len(self.week_grid)
-
-        print(f"开始预计算 {n_individuals} × {n_timepoints} = {n_individuals * n_timepoints:,} 个预测值...")
         start_time = time.time()
 
         self.prediction_table = np.zeros((n_individuals, n_timepoints))
@@ -123,11 +109,6 @@ class NIPTCompleteModel:
         for j, week in enumerate(self.week_grid):
             logit_values = fixed_base + week_coef * week
             self.prediction_table[:, j] = 1 / (1 + np.exp(-logit_values))
-
-        elapsed_time = time.time() - start_time
-        print(f"预计算完成！耗时: {elapsed_time:.2f}秒")
-        print(f"预测表大小: {self.prediction_table.shape}")
-        print(f"内存占用: ~{self.prediction_table.nbytes / 1024 / 1024:.1f} MB")
 
         return True
 
@@ -189,9 +170,10 @@ class NIPTCompleteModel:
             group_indices_list = []
             group_assignments = np.zeros(len(self.data), dtype=int)
             for i in range(n_groups):
-                mask = (bmi_values >= all_boundaries[i]) & (
-                        bmi_values <= all_boundaries[i + 1]) if i == n_groups - 1 else \
-                    (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
+                if i == n_groups - 1:
+                    mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1])
+                else:
+                    mask = (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
                 group_indices = np.where(mask)[0]
                 if len(group_indices) < min_group_size: return 1e6
                 group_indices_list.append(group_indices)
@@ -255,17 +237,10 @@ class NIPTCompleteModel:
         if not self.load_and_prepare_data() or not self.fit_upgraded_model(): return
         if not self.precompute_all_predictions(): return
 
-        print("\n" + "=" * 80)
-        print("步骤3: 快速策略搜索 (基于预计算表)")
-        print("=" * 80)
-
         for k in k_range:
-            print(f"\n--- 探索 K={k} 的最优策略 ---")
             step, max_attempts = 0.005, 3
             current_s = s_start
             while current_s >= s_end:
-                print(f"  - 尝试约束 S_global ≥ {current_s:.3f}...")
-                start_time = time.time()
                 self._objective_eval_count = 0
                 objective_func = self.objective_function_wrapper(k, current_s)
                 min_bmi, max_bmi = self.data['孕妇BMI'].min(), self.data['孕妇BMI'].max()
@@ -274,9 +249,6 @@ class NIPTCompleteModel:
 
                 for attempt in range(max_attempts):
                     initial_guess = self.generate_smart_initial_guess(k, current_s)
-                    print(
-                        f"    尝试 {attempt + 1}/{max_attempts} ({'智能' if initial_guess is not None else '随机'}初始解)...",
-                        end="")
                     try:
                         result = optimize.differential_evolution(
                             objective_func, bounds, x0=initial_guess, strategy='best1bin',
@@ -285,23 +257,15 @@ class NIPTCompleteModel:
                         )
                         if result.success and result.fun < best_risk:
                             best_result, best_risk = result, result.fun
-                            print(f" 成功! 风险={result.fun:.4f}")
-                        else:
-                            print(f" 失败")
                     except Exception as e:
                         print(f" 异常: {str(e)[:50]}...")
 
-                elapsed_time = time.time() - start_time
-                print(f"    耗时: {elapsed_time:.1f}秒, 目标函数评估: {self._objective_eval_count}次")
                 if best_result and best_risk < 1e5:
                     self.successful_strategies.append({
                         'k': k, 's_threshold': current_s, 'min_risk': best_risk,
-                        'solution': best_result.x, 'solve_time': elapsed_time
+                        'solution': best_result.x
                     })
-                    print(f"    ✓ 找到可行策略! 总风险={best_risk:.4f}")
                     break
-                else:
-                    print(f"    ✗ 未找到可行解")
                 current_s -= step
 
         self.analyze_and_present_final_solution()
@@ -312,26 +276,20 @@ class NIPTCompleteModel:
             print("\n优化搜索失败，在所有尝试的K和S组合下均未找到可行解。")
             return
 
-        print("\n" + "=" * 80)
-        print("步骤4: 最终决策分析")
-        print("=" * 80)
-
         aic_results = {}
         print("\n【模型选择：寻找最优分组数 K* (基于AIC)】")
         for strategy in self.successful_strategies:
-            k, risk, solve_time = strategy['k'], strategy['min_risk'], strategy.get('solve_time', 0)
+            k, risk = strategy['k'], strategy['min_risk']
             n_samples, num_params = len(self.data), 2 * k - 1
             aic_score = 2 * num_params + n_samples * np.log(risk)
             aic_results[k] = aic_score
-            print(
-                f"K={k}: 最高可行成功率≈{strategy['s_threshold']:.2%}, 风险={risk:.4f}, AIC={aic_score:.2f}, 求解时间={solve_time:.1f}秒")
 
         if not aic_results:
             print("\n未能计算任何AIC分数，无法选择最优K。")
             return
 
         best_k = min(aic_results, key=aic_results.get)
-        print(f"\n结论：K={best_k} 使得AIC分数最小，是理论上的最优分组数。")
+        print(f"\nK={best_k} 使得AIC分数最小，是理论上的最优分组数。")
         best_strategy = next(s for s in self.successful_strategies if s['k'] == best_k)
         self.unpack_and_display_strategy(best_strategy)
 
@@ -349,8 +307,10 @@ class NIPTCompleteModel:
         print(f"\n【最终最优策略 (K*={k}, 最高可行成功率≈{s_threshold:.1%})】")
         for i in range(k):
             bmi_range = (all_boundaries[i], all_boundaries[i + 1])
-            mask = (self.data['孕妇BMI'] >= bmi_range[0]) & (self.data['孕妇BMI'] <= bmi_range[1]) if i == k - 1 else \
-                (self.data['孕妇BMI'] >= bmi_range[0]) & (self.data['孕妇BMI'] < bmi_range[1])
+            if i == k - 1:
+                mask = (self.data['孕妇BMI'] >= bmi_range[0]) & (self.data['孕妇BMI'] <= bmi_range[1])
+            else:
+                mask = (self.data['孕妇BMI'] >= bmi_range[0]) & (self.data['孕妇BMI'] < bmi_range[1])
             group_indices = np.where(mask)[0]
             optimal_week = timepoints[i]
             group_actual_success_rate = self.calculate_group_success_prob_fast(optimal_week, group_indices)
@@ -376,9 +336,6 @@ class NIPTCompleteModel:
 
     def monte_carlo_simulation(self, strategy, n_simulations=1000, error_type='all'):
         """蒙特卡洛模拟分析检测误差影响"""
-        print(f"\n开始蒙特卡洛敏感性分析 (模拟次数: {n_simulations}, 误差类型: {error_type})")
-        print("-" * 60)
-
         # 解析策略
         k = strategy['k']
         solution = strategy['solution']
@@ -397,21 +354,12 @@ class NIPTCompleteModel:
             'simulations': []
         }
 
-        print(f"基准全局成功率: {base_results['global_success_rate']:.4f}")
-
         # 运行蒙特卡洛模拟
-        start_time = time.time()
         for sim_idx in range(n_simulations):
-            if (sim_idx + 1) % 200 == 0:
-                print(f"  进度: {sim_idx + 1}/{n_simulations}")
-
             sim_result = self._run_single_simulation(
                 k, all_boundaries, timepoints, error_type, base_results
             )
             simulation_results['simulations'].append(sim_result)
-
-        elapsed_time = time.time() - start_time
-        print(f"蒙特卡洛模拟完成，耗时: {elapsed_time:.1f}秒")
 
         # 分析结果
         self._analyze_monte_carlo_results(simulation_results, error_type)
@@ -429,8 +377,10 @@ class NIPTCompleteModel:
 
         # 计算各组的基准成功率
         for i in range(k):
-            mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1]) if i == k - 1 else \
-                (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
+            if i == k - 1:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1])
+            else:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
             group_indices = np.where(mask)[0]
             base_results['group_assignments'][group_indices] = i
 
@@ -476,8 +426,10 @@ class NIPTCompleteModel:
         # 计算带误差的成功率
         success_count = 0
         for i in range(k):
-            mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1]) if i == k - 1 else \
-                (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
+            if i == k - 1:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1])
+            else:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
             group_indices = np.where(mask)[0]
 
             if len(group_indices) > 0:
@@ -505,7 +457,6 @@ class NIPTCompleteModel:
     def _analyze_monte_carlo_results(self, simulation_results, error_type):
         """分析蒙特卡洛模拟结果"""
         print(f"\n蒙特卡洛敏感性分析结果 (误差类型: {error_type})")
-        print("-" * 50)
 
         # 提取模拟结果
         sim_global_rates = [sim['global_success_rate'] for sim in simulation_results['simulations']]
@@ -552,7 +503,6 @@ class NIPTCompleteModel:
     def parameter_sensitivity_analysis(self, strategy):
         """参数敏感性分析"""
         print(f"\n参数敏感性分析")
-        print("-" * 50)
 
         # 解析策略
         k = strategy['k']
@@ -603,8 +553,7 @@ class NIPTCompleteModel:
                             'success_rate': perturbed_rate,
                             'change': perturbed_rate - base_rate
                         })
-                        print(
-                            f"  边界{i + 1}{delta:+}BMI: 成功率={perturbed_rate:.4f} (变化{perturbed_rate - base_rate:+.4f})")
+                        print(f"  边界{i + 1}{delta:+}BMI: 成功率={perturbed_rate:.4f} (变化{perturbed_rate - base_rate:+.4f})")
                     except:
                         pass  # 忽略无效的边界调整
 
@@ -619,8 +568,10 @@ class NIPTCompleteModel:
         success_count = 0
 
         for i in range(k):
-            mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1]) if i == k - 1 else \
-                (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
+            if i == k - 1:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values <= all_boundaries[i + 1])
+            else:
+                mask = (bmi_values >= all_boundaries[i]) & (bmi_values < all_boundaries[i + 1])
             group_indices = np.where(mask)[0]
 
             if len(group_indices) > 0:
@@ -632,9 +583,7 @@ class NIPTCompleteModel:
 
     def generate_sensitivity_report(self, strategy):
         """生成敏感性分析报告"""
-        print(f"\n" + "=" * 80)
-        print("NIPT检测误差敏感性分析报告")
-        print("=" * 80)
+        print("\n\n误差敏感性分析报告")
 
         print(f"\n【分析策略】")
         print(f"最优分组数: K={strategy['k']}")
@@ -661,18 +610,10 @@ class NIPTCompleteModel:
                 below_threshold = np.mean(np.array(results['all_simulations']) < strategy['s_threshold'])
                 print(f"3. {error_type}误差下低于目标的概率: {below_threshold:.2%}")
 
-        print(f"\n【质量控制建议】")
-        print("1. 重点控制测量噪声，确保检测设备精度")
-        print("2. 定期校准以减少系统性偏差")
-        print("3. 考虑动态调整检测阈值以应对不确定性")
-        print("4. 建立质量控制体系，监控检测误差")
-        print("5. 对高风险组别适当提前检测时点")
-
         return True
 
     def run_complete_analysis(self, k_range=[3, 4, 5]):
         """运行完整分析：包括主要建模和敏感性分析"""
-        print("开始NIPT第三问完整求解...")
 
         # 1. 运行主要优化模型
         self.run_optimized_search(k_range=k_range, s_start=0.93, s_end=0.91)
@@ -684,37 +625,27 @@ class NIPTCompleteModel:
         # 获取最佳策略
         best_strategy = self.successful_strategies[-1]  # 使用最后一个（通常是最好的）策略
 
-        print(f"\n" + "=" * 80)
-        print("步骤5: 检测误差敏感性分析")
-        print("=" * 80)
-
-        print(f"开始对K={best_strategy['k']}的最优策略进行敏感性分析...")
-
         # 2. 参数敏感性分析
         param_results = self.parameter_sensitivity_analysis(best_strategy)
 
         # 3. 蒙特卡洛模拟 - 分别分析不同类型的误差
 
         # 测量噪声影响
-        print(f"\n--- 测量噪声影响分析 ---")
         mc_results_measurement = self.monte_carlo_simulation(
             best_strategy, n_simulations=500, error_type='measurement'
         )
 
         # 系统性偏差影响
-        print(f"\n--- 系统性偏差影响分析 ---")
         mc_results_systematic = self.monte_carlo_simulation(
             best_strategy, n_simulations=500, error_type='systematic'
         )
 
         # 阈值不确定性影响
-        print(f"\n--- 检测阈值不确定性影响分析 ---")
         mc_results_threshold = self.monte_carlo_simulation(
             best_strategy, n_simulations=500, error_type='threshold'
         )
 
         # 综合误差影响
-        print(f"\n--- 综合误差影响分析 ---")
         mc_results_all = self.monte_carlo_simulation(
             best_strategy, n_simulations=800, error_type='all'
         )
@@ -722,9 +653,6 @@ class NIPTCompleteModel:
         # 4. 生成综合报告
         self.generate_sensitivity_report(best_strategy)
 
-        print("\n" + "=" * 80)
-        print("第三问完整分析完成!")
-        print("=" * 80)
 
         return {
             'best_strategy': best_strategy,
@@ -742,10 +670,9 @@ if __name__ == '__main__':
     if results:
         print(f"\n【最终总结】")
         strategy = results['best_strategy']
-        print(f"最优分组方案: K={strategy['fk']}")
+        print(f"最优分组方案: K={strategy['k']}")
         print(f"最高可达成功率: {strategy['s_threshold']:.1%}")
         print(f"策略风险评分: {strategy['min_risk']:.4f}")
-        print(f"求解时间: {strategy.get('solve_time', 0):.1f}秒")
         print(f"敏感性分析完成: 已评估{len(solver.monte_carlo_results)}种误差类型的影响")
     else:
         print("分析失败，请检查数据文件和参数设置")
