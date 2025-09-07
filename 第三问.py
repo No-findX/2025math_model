@@ -7,6 +7,19 @@ import time
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
+from matplotlib import rcParams
+
+font_path = "C:/Windows/Fonts/simsun.ttc"  
+font_prop = font_manager.FontProperties(fname=font_path)
+
+# 全局设置字体为宋体
+rcParams['font.sans-serif'] = font_prop.get_name()
+rcParams['axes.unicode_minus'] = False 
+rcParams['xtick.labelsize'] = 12 
+rcParams['ytick.labelsize'] = 12
+
 warnings.filterwarnings('ignore')
 
 
@@ -664,8 +677,8 @@ def plot_final_strategy(strategy, data):
         plt.text(i, row["推荐孕周"] + 0.2,
                  f"{row['推荐孕周']:.1f}周\nBMI {row['BMI区间']}",
                  ha='center', fontsize=9)
-    plt.ylabel("推荐孕周", fontsize=12)
-    plt.title("最优分组策略", fontsize=14, weight="bold")
+    plt.ylabel("推荐孕周", fontsize=12, fontproperties=font_prop)
+    plt.title("最优分组策略", fontsize=14, weight="bold", fontproperties=font_prop)
     sns.despine()
     plt.tight_layout()
     plt.savefig("third_final_strategy_pub.png", dpi=300)
@@ -678,9 +691,9 @@ def plot_parameter_sensitivity(param_results):
     plt.plot(df_time['delta'], df_time['success_rate'],
              marker='o', linewidth=2, color="steelblue")
     plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
-    plt.xlabel("检测时点扰动 (Δ周)", fontsize=12)
-    plt.ylabel("全局成功率", fontsize=12)
-    plt.title("检测时点敏感性分析", fontsize=14, weight="bold")
+    plt.xlabel("检测时点扰动 (Δ周)", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("全局成功率", fontsize=12, fontproperties=font_prop)
+    plt.title("检测时点敏感性分析", fontsize=14, weight="bold", fontproperties=font_prop)
     sns.despine()
     plt.tight_layout()
     plt.savefig("third_time_sensitivity_pub.png", dpi=300)
@@ -693,9 +706,9 @@ def plot_parameter_sensitivity(param_results):
         sns.barplot(data=df_bmi, x='delta', y='success_rate',
                     hue='boundary_idx', palette="deep", edgecolor="black")
         plt.axhline(y=df_time['success_rate'].iloc[0], color="red", linestyle="--", linewidth=1)
-        plt.xlabel("BMI 边界扰动 (Δ)", fontsize=12)
-        plt.ylabel("全局成功率", fontsize=12)
-        plt.title("BMI 边界敏感性分析", fontsize=14, weight="bold")
+        plt.xlabel("BMI 边界扰动 (Δ)", fontsize=12, fontproperties=font_prop)
+        plt.ylabel("全局成功率", fontsize=12, fontproperties=font_prop)
+        plt.title("BMI 边界敏感性分析", fontsize=14, weight="bold", fontproperties=font_prop)
         plt.legend(title="边界编号", frameon=False)
         sns.despine()
         plt.tight_layout()
@@ -707,9 +720,9 @@ def plot_monte_carlo(mc_results):
     plt.figure(figsize=(7, 5))
     for error_type, results in mc_results.items():
         sns.kdeplot(results['all_simulations'], label=error_type, linewidth=2)
-    plt.xlabel("全局成功率", fontsize=12)
-    plt.ylabel("密度", fontsize=12)
-    plt.title("不同误差类型下的成功率分布", fontsize=14, weight="bold")
+    plt.xlabel("全局成功率", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("密度", fontsize=12, fontproperties=font_prop)
+    plt.title("不同误差类型下的成功率分布", fontsize=14, weight="bold", fontproperties=font_prop)
     plt.legend(frameon=False)
     sns.despine()
     plt.tight_layout()
@@ -726,8 +739,8 @@ def plot_monte_carlo(mc_results):
     plt.figure(figsize=(7, 5))
     sns.boxplot(data=df_mc, x="误差类型", y="成功率",
                 palette="pastel", showfliers=False)
-    plt.ylabel("全局成功率", fontsize=12)
-    plt.title("不同误差情景下的敏感性分析", fontsize=14, weight="bold")
+    plt.ylabel("全局成功率", fontsize=12, fontproperties=font_prop)
+    plt.title("不同误差情景下的敏感性分析", fontsize=14, weight="bold", fontproperties=font_prop)
     sns.despine()
     plt.tight_layout()
     plt.savefig("third_mc_box_pub.png", dpi=300)
