@@ -6,7 +6,6 @@ import warnings
 import time
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 from matplotlib.font_manager import FontProperties
 from matplotlib import font_manager
 from matplotlib import rcParams
