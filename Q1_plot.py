@@ -88,9 +88,9 @@ bin_width = bins[1] - bins[0]
 scale_factor = len(data['residuals']) * bin_width
 plt.plot(x_range, kde(x_range) * scale_factor, color="#FF8C00", linewidth=2.2, label="Kernel Density Curve")
 
-plt.title("Residual Frequency Distribution", fontsize=13, weight="bold")
-plt.xlabel("Residuals", fontsize=12, weight="bold")
-plt.ylabel("Frequency", fontsize=12, weight="bold")
+plt.title("Residual Frequency Distribution", fontsize=10)
+plt.xlabel("Residuals", fontsize=9)
+plt.ylabel("Frequency", fontsize=9)
 plt.legend()
 plt.tight_layout()
 plt.show()
@@ -105,8 +105,8 @@ min_val = min(data['y_pred'].min(), data['y_logit'].min())
 max_val = max(data['y_pred'].max(), data['y_logit'].max())
 plt.plot([min_val, max_val], [min_val, max_val], color="#FF8C00", linestyle="--", linewidth=2, label="Ideal Fit (y=x)")
 
-plt.xlabel("Predicted Values", fontsize=12, weight="bold")
-plt.ylabel("Observed Values", fontsize=12, weight="bold")
+plt.xlabel("Predicted Values", fontsize=12)
+plt.ylabel("Observed Values", fontsize=12)
 plt.title("Model Fit: Predicted vs. Observed Values", fontsize=13, weight="bold")
 plt.tight_layout()
 plt.show()
@@ -122,8 +122,6 @@ if len(cont_vars) >= 2:
     corr = data[cont_vars].corr()
     ax = sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", square=True,
                      cbar_kws={"shrink": .8}, annot_kws={"fontsize": 9})
-
-    plt.title("Correlation Heatmap of Variables", fontsize=10)
 
     # Set font properties for tick labels
     for label in ax.get_xticklabels() + ax.get_yticklabels():
