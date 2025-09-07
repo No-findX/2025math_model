@@ -17,6 +17,19 @@ from sklearn.metrics import (
     roc_auc_score
 )
 
+from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
+from matplotlib import rcParams
+
+font_path = "C:/Windows/Fonts/simsun.ttc"  
+font_prop = font_manager.FontProperties(fname=font_path)
+
+# 全局设置字体为宋体
+rcParams['font.sans-serif'] = font_prop.get_name()
+rcParams['axes.unicode_minus'] = False 
+rcParams['xtick.labelsize'] = 12 
+rcParams['ytick.labelsize'] = 12
+
 # 忽略一些计算过程中可能出现的警告
 warnings.filterwarnings("ignore")
 
@@ -45,10 +58,10 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
     plt.figure(figsize=(10, 6))
     sns.kdeplot(df[gc_col], label="QC筛选前", fill=True, color="gray", lw=2)
     sns.kdeplot(d[gc_col], label="QC筛选后", fill=True, color="skyblue", lw=2)
-    plt.title('QC筛选前后 "GC含量" 的分布对比', fontsize=16)
-    plt.xlabel("GC含量", fontsize=12)
-    plt.ylabel("密度", fontsize=12)
-    plt.legend()
+    plt.title('QC筛选前后 "GC含量" 的分布对比', fontsize=16, fontproperties=font_prop)
+    plt.xlabel("GC含量", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("密度", fontsize=12, fontproperties=font_prop)
+    plt.legend(prop=font_prop)
     plt.grid(True)
     plt.savefig("plot_1_qc_distribution.png", dpi=300)
     plt.close()
@@ -62,15 +75,15 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 7))
     ax1.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.4f})')
     ax1.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    ax1.set_xlabel('假正例率 (False Positive Rate)');
-    ax1.set_ylabel('真正例率 (True Positive Rate)')
-    ax1.set_title('ROC 曲线');
-    ax1.legend(loc="lower right");
+    ax1.set_xlabel('假正例率 (False Positive Rate)', fontsize=12, fontproperties=font_prop)
+    ax1.set_ylabel('真正例率 (True Positive Rate)', fontsize=12, fontproperties=font_prop)
+    ax1.set_title('ROC 曲线', fontsize=14, weight="bold", fontproperties=font_prop)
+    ax1.legend(loc="lower right", prop=font_prop)
     ax1.grid(True)
     ax2.plot(recall, precision, color='blue', lw=2, label=f'PR curve (AUC = {pr_auc:.4f})')
-    ax2.set_xlabel('召回率 (Recall)');
-    ax2.set_ylabel('精确率 (Precision)')
-    ax2.set_title('PR 曲线');
+    ax2.set_xlabel('召回率 (Recall)', fontsize=12, fontproperties=font_prop)
+    ax2.set_ylabel('精确率 (Precision)', fontsize=12, fontproperties=font_prop)
+    ax2.set_title('PR 曲线', fontsize=14, weight="bold", fontproperties=font_prop)
     ax2.legend(loc="lower left");
     ax2.grid(True)
     plt.suptitle("模型性能评估曲线", fontsize=16)
@@ -86,9 +99,9 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
                 xticklabels=['预测为负', '预测为正'],
                 yticklabels=['实际为负', '实际为正'])
-    plt.title(f'混淆矩阵 (最优决策阈值 t* = {t_star:.3f})', fontsize=16)
-    plt.ylabel('实际类别', fontsize=12)
-    plt.xlabel('预测类别', fontsize=12)
+    plt.title(f'混淆矩阵 (最优决策阈值 t* = {t_star:.3f})', fontsize=16, fontproperties=font_prop)
+    plt.ylabel('实际类别', fontsize=12, fontproperties=font_prop)
+    plt.xlabel('预测类别', fontsize=12, fontproperties=font_prop)
     plt.savefig("plot_3_confusion_matrix.png", dpi=300)
     plt.close()
 
@@ -99,9 +112,9 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
     feature_importance = feature_importance.sort_values(by='Coefficient', ascending=False)
     plt.figure(figsize=(12, 8))
     sns.barplot(x='Coefficient', y='Feature', data=feature_importance, palette='viridis')
-    plt.title('逻辑回归模型特征系数', fontsize=16)
-    plt.xlabel('系数值', fontsize=12)
-    plt.ylabel('特征', fontsize=12)
+    plt.title('逻辑回归模型特征系数', fontsize=16, fontproperties=font_prop)
+    plt.xlabel('系数值', fontsize=12, fontproperties=font_prop)
+    plt.ylabel('特征', fontsize=12, fontproperties=font_prop)
     plt.grid(axis='x')
     plt.tight_layout()
     plt.savefig("plot_4_feature_coefficients.png", dpi=300)
@@ -121,10 +134,10 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
     plt.figure(figsize=(10, 6))
     plt.plot(ts, costs, marker='.', linestyle='-')
     plt.axvline(x=t_star, color='r', linestyle='--', label=f'成本最低点 t*={t_star:.3f}')
-    plt.title('总成本 vs. 决策阈值', fontsize=16)
-    plt.xlabel('决策阈值', fontsize=12)
-    plt.ylabel('加权总成本', fontsize=12)
-    plt.legend()
+    plt.title('总成本 vs. 决策阈值', fontsize=16, fontproperties=font_prop)
+    plt.xlabel('决策阈值', fontsize=12, fontproperties=font_prop)
+    plt.ylabel('加权总成本', fontsize=12, fontproperties=font_prop)
+    plt.legend(prop=font_prop)
     plt.grid(True)
     plt.savefig("plot_5_cost_vs_threshold.png", dpi=300)
     plt.close()
@@ -145,9 +158,9 @@ def generate_additional_plots(df, d, oof_true, oof_pred, t_star, t_low, t_high, 
 
     # 美化图表
     plt.title('模型预测概率分布与风险区间划分', fontsize=18)
-    plt.xlabel('模型预测为异常的概率', fontsize=14)
-    plt.ylabel('概率密度', fontsize=14)
-    plt.legend(fontsize=12)
+    plt.xlabel('模型预测为异常的概率', fontsize=14, fontproperties=font_prop)
+    plt.ylabel('概率密度', fontsize=14, fontproperties=font_prop)
+    plt.legend(fontsize=12, prop=font_prop)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.xlim(0, 1)
     sns.despine(left=True)

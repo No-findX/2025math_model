@@ -5,6 +5,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
+from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
+from matplotlib import rcParams
+
+font_path = "C:/Windows/Fonts/simsun.ttc"  
+font_prop = font_manager.FontProperties(fname=font_path)
+
+# 全局设置字体为宋体
+rcParams['font.sans-serif'] = font_prop.get_name()
+rcParams['axes.unicode_minus'] = False 
+rcParams['xtick.labelsize'] = 12 
+rcParams['ytick.labelsize'] = 12
 
 
 # --- [新增] 智能字体设置 ---
@@ -47,11 +59,11 @@ def plot_bmi_distribution(model):
         for i, b in enumerate(boundaries):
             plt.axvline(x=b, color='red', linestyle='--', linewidth=2,
                         label=f'分组边界 {i + 1}: {b:.2f}' if i == 0 else f'_分组边界 {i + 1}: {b:.2f}')
-    plt.title("孕妇BMI分布及最优分组边界", fontsize=16, weight='bold')
-    plt.xlabel("孕妇BMI", fontsize=12);
-    plt.ylabel("孕妇数量", fontsize=12)
+    plt.title("孕妇BMI分布及最优分组边界", fontsize=16, weight='bold', fontproperties=font_prop)
+    plt.xlabel("孕妇BMI", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("孕妇数量", fontsize=12, fontproperties=font_prop)
     if len(boundaries) > 0: plt.legend()
-    sns.despine();
+    sns.despine()
     plt.tight_layout()
     plt.savefig("bmi_distribution_with_boundaries.png", dpi=300)
     print("成功保存 'bmi_distribution_with_boundaries.png'")
@@ -82,11 +94,11 @@ def plot_lmm_coefficients(model):
     err = summary_df['Coef.'] - summary_df['[0.025']
     plt.barh(summary_df.index, summary_df['Coef.'], xerr=err, color=colors, alpha=0.8, capsize=5, edgecolor='black')
     plt.axvline(0, color='black', linestyle='--', linewidth=1)
-    plt.xlabel("系数 (Coefficient)", fontsize=12)
-    plt.ylabel("模型变量", fontsize=12)
-    plt.title("LMM模型各变量影响系数", fontsize=16, weight='bold')
+    plt.xlabel("系数 (Coefficient)", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("模型变量", fontsize=12, fontproperties=font_prop)
+    plt.title("LMM模型各变量影响系数", fontsize=16, weight='bold', fontproperties=font_prop)
     plt.grid(axis='x', linestyle='--', alpha=0.6)
-    sns.despine();
+    sns.despine()
     plt.tight_layout()
     plt.savefig("lmm_coefficients.png", dpi=300)
     print("成功保存 'lmm_coefficients.png'")
@@ -117,12 +129,12 @@ def plot_decision_space(model):
         plt.axvline(timepoints[i], linestyle='-', linewidth=2,
                     color=sns.color_palette('viridis', k)[i],
                     label=f'组{i + 1} 推荐孕周 ({timepoints[i]:.1f}w)')
-    plt.title("最终策略决策空间", fontsize=16, weight='bold')
-    plt.xlabel("孕周 (周)", fontsize=12)
-    plt.ylabel("Y染色体浓度", fontsize=12)
-    plt.legend(title='BMI 分组', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.title("最终策略决策空间", fontsize=16, weight='bold', fontproperties=font_prop)
+    plt.xlabel("孕周 (周)", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("Y染色体浓度", fontsize=12, fontproperties=font_prop)
+    plt.legend(title='BMI 分组', bbox_to_anchor=(1.05, 1), loc='upper left', prop=font_prop)
     plt.ylim(0, max(0.2, plot_data['Y染色体浓度'].quantile(0.99)))
-    sns.despine();
+    sns.despine()
     plt.tight_layout()
     plt.savefig("decision_space.png", dpi=300)
     print("成功保存 'decision_space.png'")
