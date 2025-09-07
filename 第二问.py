@@ -6,11 +6,21 @@ from scipy import optimize, stats
 import statsmodels.formula.api as smf
 import warnings
 import pickle
+from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
+from matplotlib import rcParams
+
+font_path = "C:/Windows/Fonts/simsun.ttc"  
+font_prop = font_manager.FontProperties(fname=font_path)
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
+rcParams['font.sans-serif'] = font_prop.get_name()
+rcParams['axes.unicode_minus'] = False 
+rcParams['xtick.labelsize'] = 12 
+rcParams['ytick.labelsize'] = 12
 
 class NIPTFinalIntegratedModel:
     def __init__(self, data_path='processed_male_data.csv'):
@@ -296,10 +306,10 @@ def plot_tradeoff_curves(model):
         print("没有数据可绘制，请检查优化是否成功")
         return
 
-    plt.xlabel("成功率阈值 S", fontsize=12)
-    plt.ylabel("最小风险分数", fontsize=12)
-    plt.title("风险-成功率权衡曲线", fontsize=14, weight="bold")
-    plt.legend(frameon=False)
+    plt.xlabel("成功率阈值 S", fontsize=12, fontproperties=font_prop)
+    plt.ylabel("最小风险分数", fontsize=12, fontproperties=font_prop)
+    plt.title("风险-成功率权衡曲线", fontsize=14, weight="bold", fontproperties=font_prop)
+    plt.legend(frameon=False, prop=font_prop)
     sns.despine()  # 去掉上和右边框
     plt.tight_layout()
     plt.savefig("tradeoff_curve_pub.png", dpi=300)
@@ -317,8 +327,8 @@ def plot_final_strategy(model):
     for i, row in df.iterrows():
         plt.text(i, row["推荐孕周"] + 0.2, f"{row['推荐孕周']:.1f}周",
                  ha='center', fontsize=10)
-    plt.ylabel("推荐孕周", fontsize=12)
-    plt.title("最优分组策略", fontsize=14, weight="bold")
+    plt.ylabel("推荐孕周", fontsize=12, fontproperties=font_prop)
+    plt.title("最优分组策略", fontsize=14, weight="bold", fontproperties=font_prop)
     sns.despine()
     plt.tight_layout()
     plt.savefig("final_strategy_pub.png", dpi=300)
@@ -345,9 +355,9 @@ def plot_sensitivity_analysis(model):
                    label="模拟均值 ±95%CI")
     plt.scatter(df["组别"], df["基准孕周"], color="red", zorder=5, label="基准孕周")
 
-    plt.ylabel("推荐孕周", fontsize=12)
-    plt.title("敏感性分析", fontsize=14, weight="bold")
-    plt.legend(frameon=False)
+    plt.ylabel("推荐孕周", fontsize=12, fontproperties=font_prop)
+    plt.title("敏感性分析", fontsize=14, weight="bold", fontproperties=font_prop)
+    plt.legend(frameon=False, prop=font_prop)
     sns.despine()
     plt.tight_layout()
     plt.savefig("sensitivity_pub.png", dpi=300)

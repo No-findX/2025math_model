@@ -7,6 +7,17 @@ import warnings
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
+from matplotlib import font_manager
+from matplotlib import rcParams
+
+font_path = "C:/Windows/Fonts/simsun.ttc"  
+font_prop = font_manager.FontProperties(fname=font_path)
+
+# 全局设置字体为宋体
+rcParams['font.sans-serif'] = font_prop.get_name()
+rcParams['axes.unicode_minus'] = False 
+rcParams['xtick.labelsize'] = 12 
+rcParams['ytick.labelsize'] = 12
 
 # --- Matplotlib Setup for Chinese Characters ---
 try:
@@ -164,42 +175,49 @@ class NIPTCompleteModel:
             index={'C(IVF妊娠)[T.自然受孕]': 'IVF妊娠(自然受孕)', 'week': '孕周数值', 'BMI': '孕妇BMI', 'age': '年龄'},
             inplace=True)
 
-        plt.figure(figsize=(10, 6));
-        sns.set_style("whitegrid")
+        plt.figure(figsize=(10, 6))
+        sns.set_theme(font='SimHei', style='whitegrid')
         plt.errorbar(df_coeffs['coefficient'], df_coeffs.index, xerr=df_coeffs['error'], fmt='o', color='darkslateblue',
                      ecolor='lightgray', elinewidth=3, capsize=5)
-        plt.axvline(x=0, color='red', linestyle='--');
-        plt.title('混合效应模型: 固定效应系数', fontsize=18, weight='bold')
-        plt.xlabel('系数值 (对Logit浓度的影响)', fontsize=14);
-        plt.ylabel('模型变量', fontsize=14)
-        plt.tight_layout();
+        plt.axvline(x=0, color='red', linestyle='--')
+        plt.title('混合效应模型: 固定效应系数', fontsize=18, weight='bold', fontproperties=font_prop)
+        plt.xlabel('系数值 (对Logit浓度的影响)', fontsize=14, fontproperties=font_prop)
+        plt.ylabel('模型变量', fontsize=14, fontproperties=font_prop)
+
+        ax = plt.gca()
+        for label in ax.get_xticklabels():
+            label.set_fontproperties(font_prop)
+        for label in ax.get_yticklabels():
+            label.set_fontproperties(font_prop)
+
+        plt.tight_layout()
         plt.savefig("model_coefficients.png", dpi=300)
 
     def plot_random_effects_distribution(self):
         random_effects = [v['Group'] for v in self.model_results['re'].values()]
-        plt.figure(figsize=(10, 6));
-        sns.set_style("whitegrid")
+        plt.figure(figsize=(10, 6))
+        sns.set_theme(font='SimHei', style='whitegrid')
         sns.histplot(random_effects, kde=True, stat='density', label='随机效应分布', color='cornflowerblue')
         mu, std = norm.fit(random_effects)
         x = np.linspace(*plt.xlim(), 100)
         plt.plot(x, norm.pdf(x, mu, std), 'k--', linewidth=2, label='正态分布拟合')
-        plt.title('模型随机效应 (个体差异) 分布', fontsize=18, weight='bold')
-        plt.xlabel('随机截距值', fontsize=14);
-        plt.ylabel('密度', fontsize=14);
+        plt.title('模型随机效应 (个体差异) 分布', fontsize=18, weight='bold', fontproperties=font_prop)
+        plt.xlabel('随机截距值', fontsize=14, fontproperties=font_prop)
+        plt.ylabel('密度', fontsize=14, fontproperties=font_prop)
         plt.legend()
-        plt.tight_layout();
+        plt.tight_layout()
         plt.savefig("random_effects_distribution.png", dpi=300)
 
     def plot_convergence(self):
         convergence_to_plot = [val for val in self.convergence_history if val < 1e8]
-        plt.figure(figsize=(10, 6));
-        sns.set_style("whitegrid")
+        plt.figure(figsize=(10, 6))
+        sns.set_theme(font='SimHei', style='whitegrid')
         plt.plot(convergence_to_plot, marker='.', linestyle='-', color='mediumseagreen')
-        plt.title('差分进化算法收敛曲线', fontsize=18, weight='bold')
-        plt.xlabel('评估次数', fontsize=14);
-        plt.ylabel('最优目标函数值 (总风险)', fontsize=14)
-        plt.grid(True, which='both', linestyle='--');
-        plt.tight_layout();
+        plt.title('差分进化算法收敛曲线', fontsize=18, weight='bold', fontproperties=font_prop)
+        plt.xlabel('评估次数', fontsize=14, fontproperties=font_prop)
+        plt.ylabel('最优目标函数值 (总风险)', fontsize=14, fontproperties=font_prop)
+        plt.grid(True, which='both', linestyle='--')
+        plt.tight_layout()
         plt.savefig("convergence_plot.png", dpi=300)
 
 
@@ -269,8 +287,8 @@ def run_analysis_and_plot():
 
 
 def plot_success_rate_vs_week(solver, strategy):
-    plt.figure(figsize=(12, 8));
-    sns.set(style="whitegrid", context="talk")
+    plt.figure(figsize=(12, 8))
+    sns.set_theme(font='SimHei', style='whitegrid')
     colors = sns.color_palette("viridis", n_colors=strategy['k'])
     bds = np.concatenate(([solver.data['BMI'].min()], strategy['boundaries'], [solver.data['BMI'].max()]))
     names = ["低BMI组", "中等BMI组", "高BMI组"]
@@ -287,18 +305,18 @@ def plot_success_rate_vs_week(solver, strategy):
                  color=colors[i], weight='bold')
     plt.axhline(y=strategy['global_success_rate'], color='r', ls='-',
                 label=f'全局可行成功率: {strategy["global_success_rate"]:.1%}')
-    plt.title('各风险分组的成功率与孕周关系', fontsize=18, weight='bold');
-    plt.xlabel('孕周 (周)', fontsize=14);
-    plt.ylabel('预测成功率', fontsize=14);
-    plt.legend(title='BMI分组');
-    plt.ylim(0.4, 1.0);
-    plt.tight_layout();
+    plt.title('各风险分组的成功率与孕周关系', fontsize=18, weight='bold', fontproperties=font_prop)
+    plt.xlabel('孕周 (周)', fontsize=14, fontproperties=font_prop)
+    plt.ylabel('预测成功率', fontsize=14, fontproperties=font_prop)
+    plt.legend(title='BMI分组', prop=font_prop)
+    plt.ylim(0.4, 1.0)
+    plt.tight_layout()
     plt.savefig("success_rate_vs_week.png", dpi=300)
 
 
 def plot_final_strategy(solver, strategy):
-    plt.figure(figsize=(14, 9));
-    sns.set(style="whitegrid", context="talk")
+    plt.figure(figsize=(14, 9))
+    sns.set_theme(font='SimHei', style='whitegrid')
     bds = np.concatenate(([solver.data['BMI'].min()], strategy['boundaries'], [solver.data['BMI'].max()]))
     names = ["低BMI组", "中等BMI组", "高BMI组"]
 
@@ -309,8 +327,11 @@ def plot_final_strategy(solver, strategy):
         else:
             conditions.append((solver.data['BMI'] >= bds[i]) & (solver.data['BMI'] < bds[i + 1]))
 
-    solver.data['Group'] = np.select(conditions, [f'{gn}\n[{fb[0]:.2f}, {fb[1]:.2f}]' for gn, fb in
-                                                  zip(names, zip(bds[:-1], bds[1:]))])
+    solver.data['Group'] = np.select(
+        conditions,
+        [f'{gn}\n[{fb[0]:.2f}, {fb[1]:.2f}]' for gn, fb in zip(names, zip(bds[:-1], bds[1:]))],
+        default=''
+    )
     palette = sns.color_palette("viridis", n_colors=strategy['k'])
     sns.scatterplot(data=solver.data, x='BMI', y='week', hue='Group', palette=palette, alpha=0.6, s=50)
     for i in range(strategy['k']):
@@ -318,11 +339,11 @@ def plot_final_strategy(solver, strategy):
         plt.text(np.mean(bds[i:i + 2]), strategy['weeks'][i] + 0.3, f'推荐: {strategy["weeks"][i]:.1f} 周',
                  color=palette[i], ha='center', weight='bold')
     for b in strategy['boundaries']: plt.axvline(x=b, color='grey', ls='--', lw=2)
-    plt.title('最终优化策略：人群分组与推荐检测方案', fontsize=18, weight='bold');
-    plt.xlabel('孕妇BMI', fontsize=14);
-    plt.ylabel('检测时孕周 (周)', fontsize=14);
-    plt.legend(title='分组与推荐', bbox_to_anchor=(1.05, 1), loc='upper left');
-    plt.tight_layout(rect=[0, 0, 0.85, 1]);
+    plt.title('最终优化策略：人群分组与推荐检测方案', fontsize=18, weight='bold', fontproperties=font_prop)
+    plt.xlabel('孕妇BMI', fontsize=14, fontproperties=font_prop)
+    plt.ylabel('检测时孕周 (周)', fontsize=14, fontproperties=font_prop)
+    plt.legend(title='分组与推荐', loc='upper right', fontsize=10, title_fontsize=12, prop=font_prop)
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
     plt.savefig("final_strategy_visualization.png", dpi=300)
 
 
